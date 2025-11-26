@@ -31,10 +31,34 @@
       height: 100vh;
     }
 
-    /* Desktop controls */
+    /* Title header - centered and styled to stand out */
+    .header {
+      position: absolute;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-secondary);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 0.5rem 2rem;
+      z-index: 100;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    /* Desktop controls - positioned above footer */
     .controls {
       position: absolute;
-      bottom: 1.5rem;
+      bottom: 2.5rem; /* Space above footer */
       left: 50%;
       transform: translateX(-50%);
       background: var(--bg-secondary);
@@ -103,11 +127,11 @@
       background: linear-gradient(135deg, #4ade80, #22c55e);
     }
 
-    /* Mobile menu toggle - clearly a button */
+    /* Mobile menu toggle - positioned above footer */
     .mobile-menu-toggle {
       display: none;
       position: absolute;
-      bottom: 1rem;
+      bottom: 3rem; /* Space above footer */
       left: 50%;
       transform: translateX(-50%);
       z-index: 101;
@@ -195,6 +219,32 @@
       z-index: 100;
     }
 
+    /* GitHub footer - always at bottom with lowest z-index */
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      padding: 0.4rem;
+      text-align: center;
+      font-size: 0.75rem;
+      z-index: 50; /* Below everything else */
+      backdrop-filter: blur(4px);
+    }
+
+    .footer a {
+      color: var(--accent-color);
+      text-decoration: none;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+
+    .footer a:hover {
+      opacity: 0.8;
+    }
+
     /* Overlay for mobile menu */
     .menu-overlay {
       display: none;
@@ -216,6 +266,15 @@
 
     /* Mobile styles */
     @media (max-width: 768px) {
+      .header {
+        top: 0.5rem;
+        padding: 0.4rem 1.5rem;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
       .controls {
         /* Hidden on mobile by default */
         display: none;
@@ -227,9 +286,9 @@
         min-width: 90vw;
         max-width: 400px;
         border-radius: 1rem;
-        z-index: 100;
+        z-index: 100; /* Above footer, below overlay */
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-        padding: 1.5rem; /* More padding */
+        padding: 1.5rem;
       }
 
       .controls.mobile-active {
@@ -250,22 +309,22 @@
 
       .control-row {
         gap: 0.75rem;
-        margin-bottom: 1rem; /* More spacing */
+        margin-bottom: 1rem;
       }
 
       /* Larger buttons on mobile menu */
       .controls.mobile-active button {
-        padding: 0.75rem 1.5rem; /* Bigger padding */
-        font-size: 1rem; /* Larger text */
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
         font-weight: 600;
-        min-height: 48px; /* Taller buttons */
+        min-height: 48px;
         flex: 1;
       }
 
       .info-row {
         flex-direction: column;
-        gap: 0.5rem; /* More spacing */
-        font-size: 1rem; /* Larger text */
+        gap: 0.5rem;
+        font-size: 1rem;
         margin-top: 0.5rem;
       }
 
@@ -274,6 +333,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      /* Footer remains at bottom */
+      .footer {
+        font-size: 0.7rem;
+        padding: 0.3rem;
+        z-index: 50; /* Below menu button */
       }
 
       .fps-counter {
@@ -293,13 +359,18 @@
       .controls.mobile-active button {
         padding: 0.7rem 1rem;
         font-size: 0.95rem;
-        min-width: 100px; /* Prevent buttons from getting too small */
+        min-width: 100px;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
+    <!-- Title header -->
+    <div class="header">
+      <h1>Langton's Ants</h1>
+    </div>
+
     <!-- Mobile menu toggle button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Open menu">
       ☰
@@ -340,6 +411,13 @@
 
     <canvas id="canvas"></canvas>
     <div class="fps-counter" id="fpsCounter"></div>
+
+    <!-- GitHub footer -->
+    <footer class="footer">
+      <a href="https://github.com/alaric-visi/langtons-ants/tree/main " target="_blank" rel="noopener noreferrer">
+        View on GitHub
+      </a>
+    </footer>
   </div>
 
   <div class="tooltip" id="tooltip"></div>
@@ -439,9 +517,6 @@
           closeMenu();
         });
         
-        // REMOVED: Auto-close on button click inside menu
-        
-        // Prevent menu from closing when clicking inside sliders
         const sliders = menu.querySelectorAll('input[type="range"]');
         sliders.forEach(slider => {
           slider.addEventListener('click', (e) => {
@@ -449,7 +524,6 @@
           });
         });
         
-        // Add Escape key to close menu
         window.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && isMobile() && menu.classList.contains('mobile-active')) {
             closeMenu();
@@ -826,4 +900,3 @@
   </script>
 </body>
 </html>
-
