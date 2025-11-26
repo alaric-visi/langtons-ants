@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Langton's Ants</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #1a0f15;
+      --bg-secondary: rgba(39, 22, 30, 0.85);
+      --text-primary: #e9e9f0;
+      --accent-color: #ff6936;
+      --border-color: rgba(255, 105, 54, 0.3);
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Desktop controls */
+    .controls {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: 1rem;
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      z-index: 100;
+      min-width: 320px;
+      transition: all 0.3s ease;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      gap: 1.5rem;
+    }
+
+    .info-row span {
+      color: var(--accent-color);
+      font-weight: 600;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--bg-primary);
+      background: linear-gradient(135deg, var(--accent-color), #ffa366);
+      border: none;
+      border-radius: 0.75rem;
+      transition: all 0.2s ease;
+      min-width: 44px;
+      min-height: 44px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.active {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+    }
+
+    /* Mobile menu toggle - clearly a button */
+    .mobile-menu-toggle {
+      display: none;
+      position: absolute;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 101;
+      background: var(--bg-secondary);
+      border: 2px solid var(--accent-color);
+      backdrop-filter: blur(8px);
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      padding: 0;
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: var(--accent-color);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
+    }
+
+    .mobile-menu-toggle:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    input[type="range"] {
+      width: 120px;
+      height: 4px;
+      background: var(--border-color);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--accent-color);
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .tooltip {
+      position: fixed;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 200;
+    }
+
+    .tooltip.show {
+      opacity: 1;
+    }
+
+    .fps-counter {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: var(--bg-secondary);
+      padding: 0.25rem 0.75rem;
+      border-radius: 1rem;
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+      z-index: 100;
+    }
+
+    /* Overlay for mobile menu */
+    .menu-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 99;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .menu-overlay.active {
+      display: block;
+      opacity: 1;
+    }
+
+    /* Mobile styles */
+    @media (max-width: 768px) {
+      .controls {
+        /* Hidden on mobile by default */
+        display: none;
+        position: fixed;
+        bottom: auto;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 90vw;
+        max-width: 400px;
+        border-radius: 1rem;
+        z-index: 100;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        padding: 1.5rem; /* More padding */
+      }
+
+      .controls.mobile-active {
+        display: block;
+        animation: menuAppear 0.3s ease-out;
+      }
+
+      @keyframes menuAppear {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      .control-row {
+        gap: 0.75rem;
+        margin-bottom: 1rem; /* More spacing */
+      }
+
+      /* Larger buttons on mobile menu */
+      .controls.mobile-active button {
+        padding: 0.75rem 1.5rem; /* Bigger padding */
+        font-size: 1rem; /* Larger text */
+        font-weight: 600;
+        min-height: 48px; /* Taller buttons */
+        flex: 1;
+      }
+
+      .info-row {
+        flex-direction: column;
+        gap: 0.5rem; /* More spacing */
+        font-size: 1rem; /* Larger text */
+        margin-top: 0.5rem;
+      }
+
+      /* Show mobile menu button */
+      .mobile-menu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .fps-counter {
+        top: 0.5rem;
+        right: 0.5rem;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .controls.mobile-active {
+        min-width: 95vw;
+        padding: 1.25rem;
+      }
+
+      .controls.mobile-active button {
+        padding: 0.7rem 1rem;
+        font-size: 0.95rem;
+        min-width: 100px; /* Prevent buttons from getting too small */
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Mobile menu toggle button -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Open menu">
+      ☰
+    </button>
+
+    <!-- Menu overlay -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <!-- Controls -->
+    <div class="controls" id="controls">
+      <div class="control-row">
+        <button id="playPauseBtn" aria-label="Play or pause simulation">Pause</button>
+        <button id="addAntBtn" aria-label="Add ant at random position">Add Ant</button>
+        <button id="resetBtn" aria-label="Reset simulation">Reset</button>
+        <button id="themeBtn" aria-label="Change color theme">Theme</button>
+      </div>
+      
+      <div class="control-row">
+        <div class="slider-container">
+          <label for="speedSlider" style="font-size: 0.85rem;">Speed:</label>
+          <input type="range" id="speedSlider" min="0.25" max="16" step="0.25" value="1">
+          <span id="speedValue" style="font-variant-numeric: tabular-nums; min-width: 36px;">1.00x</span>
+        </div>
+        
+        <div class="slider-container">
+          <label for="pixelSlider" style="font-size: 0.85rem;">Zoom:</label>
+          <input type="range" id="pixelSlider" min="5" max="40" step="1" value="20">
+          <span id="pixelValue" style="min-width: 30px;">20px</span>
+        </div>
+      </div>
+
+      <div class="info-row">
+        <div>Ants: <span id="antCount">12</span></div>
+        <div>Steps: <span id="stepCount">0</span></div>
+        <div>FPS: <span id="fps">60</span></div>
+      </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+    <div class="fps-counter" id="fpsCounter"></div>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    class LangtonsAnts {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        
+        this.config = {
+          initialAnts: 12,
+          minSpeed: 0.25,
+          maxSpeed: 16,
+          minPixelSize: 5,
+          maxPixelSize: 40,
+          fpsSampleSize: 30,
+          virtualGridSize: 5000,
+        };
+
+        this.state = {
+          grid: new Map(),
+          ants: [],
+          steps: 0,
+          isPaused: false,
+          speed: 1,
+          pixelSize: 20,
+          viewCenterX: 2500,
+          viewCenterY: 2500,
+          theme: 0,
+          lastTime: performance.now(),
+          frameCount: 0,
+          fps: 60,
+          changedCells: new Set(),
+          antTrails: new Map(),
+        };
+
+        this.themes = [
+          { name: 'Rainbow', bg: '#1a0f15', generator: this.generateRainbowColor },
+          { name: 'Ocean', bg: '#0a1929', generator: this.generateOceanColor },
+          { name: 'Forest', bg: '#0f1a0f', generator: this.generateForestColor },
+          { name: 'Fire', bg: '#1a0f0f', generator: this.generateFireColor },
+        ];
+
+        this.init();
+        this.setupMobileMenu();
+      }
+
+      init() {
+        if (!this.ctx) {
+          throw new Error('Canvas not supported');
+        }
+
+        this.resizeCanvas();
+        this.setupEventListeners();
+        this.reset();
+        this.animate();
+      }
+
+      setupMobileMenu() {
+        const toggle = document.getElementById('mobileMenuToggle');
+        const menu = document.getElementById('controls');
+        const overlay = document.getElementById('menuOverlay');
+        
+        const isMobile = () => window.innerWidth <= 768;
+        
+        const closeMenu = () => {
+          menu.classList.remove('mobile-active');
+          overlay.classList.remove('active');
+          document.body.style.overflow = 'hidden';
+          toggle.innerHTML = '☰';
+          toggle.setAttribute('aria-label', 'Open menu');
+        };
+        
+        const openMenu = () => {
+          menu.classList.add('mobile-active');
+          overlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
+          toggle.innerHTML = '✕';
+          toggle.setAttribute('aria-label', 'Close menu');
+        };
+        
+        const toggleMenu = () => {
+          if (menu.classList.contains('mobile-active')) {
+            closeMenu();
+          } else {
+            openMenu();
+          }
+        };
+        
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleMenu();
+        });
+        
+        overlay.addEventListener('click', () => {
+          closeMenu();
+        });
+        
+        // REMOVED: Auto-close on button click inside menu
+        
+        // Prevent menu from closing when clicking inside sliders
+        const sliders = menu.querySelectorAll('input[type="range"]');
+        sliders.forEach(slider => {
+          slider.addEventListener('click', (e) => {
+            e.stopPropagation();
+          });
+        });
+        
+        // Add Escape key to close menu
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && isMobile() && menu.classList.contains('mobile-active')) {
+            closeMenu();
+          }
+        });
+        
+        window.addEventListener('resize', () => {
+          if (!isMobile() && menu.classList.contains('mobile-active')) {
+            closeMenu();
+          }
+        });
+      }
+
+      resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = window.innerWidth * dpr;
+        this.canvas.height = window.innerHeight * dpr;
+        this.canvas.style.width = window.innerWidth + 'px';
+        this.canvas.style.height = window.innerHeight + 'px';
+        this.ctx.scale(dpr, dpr);
+
+        this.state.viewWidth = window.innerWidth;
+        this.state.viewHeight = window.innerHeight;
+      }
+
+      setupEventListeners() {
+        document.getElementById('playPauseBtn').addEventListener('click', () => this.togglePlayPause());
+        document.getElementById('addAntBtn').addEventListener('click', () => this.addRandomAnt());
+        document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+        document.getElementById('themeBtn').addEventListener('click', () => this.cycleTheme());
+        
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+          this.state.speed = parseFloat(e.target.value);
+          document.getElementById('speedValue').textContent = this.state.speed.toFixed(2) + 'x';
+        });
+        
+        document.getElementById('pixelSlider').addEventListener('input', (e) => {
+          this.state.pixelSize = parseInt(e.target.value);
+          document.getElementById('pixelValue').textContent = this.state.pixelSize + 'px';
+          this.state.changedCells.clear();
+          this.redrawAll();
+        });
+
+        this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          this.handleCanvasRightClick(e);
+        });
+
+        window.addEventListener('resize', () => {
+          this.resizeCanvas();
+          this.redrawAll();
+        });
+
+        window.addEventListener('keydown', (e) => {
+          switch(e.key.toLowerCase()) {
+            case ' ': e.preventDefault(); this.togglePlayPause(); break;
+            case 'r': this.reset(); break;
+            case 'a': this.addRandomAnt(); break;
+            case '+': case '=': this.adjustSpeed(1.5); break;
+            case '-': case '_': this.adjustSpeed(1/1.5); break;
+          }
+        });
+      }
+
+      handleCanvasClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const viewX = Math.floor((e.clientX - rect.left) / this.state.pixelSize);
+        const viewY = Math.floor((e.clientY - rect.top) / this.state.pixelSize);
+        
+        const virtualX = this.state.viewCenterX + (viewX - this.state.viewWidth / (2 * this.state.pixelSize));
+        const virtualY = this.state.viewCenterY + (viewY - this.state.viewHeight / (2 * this.state.pixelSize));
+        
+        if (!this.removeAntAt(Math.floor(virtualX), Math.floor(virtualY))) {
+          const ant = this.createAnt(Math.floor(virtualX), Math.floor(virtualY), Date.now());
+          this.state.ants.push(ant);
+          this.state.antTrails.set(ant.id, [{x: ant.x, y: ant.y}]);
+          this.updateInfo();
+          this.showTooltip(`Ant added at (${Math.floor(virtualX)}, ${Math.floor(virtualY)})`);
+        }
+      }
+
+      handleCanvasRightClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const viewX = Math.floor((e.clientX - rect.left) / this.state.pixelSize);
+        const viewY = Math.floor((e.clientY - rect.top) / this.state.pixelSize);
+        
+        const virtualX = this.state.viewCenterX + (viewX - this.state.viewWidth / (2 * this.state.pixelSize));
+        const virtualY = this.state.viewCenterY + (viewY - this.state.viewHeight / (2 * this.state.pixelSize));
+        
+        this.removeAntAt(Math.floor(virtualX), Math.floor(virtualY));
+      }
+
+      createAnt(x, y, id) {
+        return { id, x, y, direction: Math.floor(Math.random() * 4) };
+      }
+
+      addRandomAnt() {
+        const cols = Math.floor(this.state.viewWidth / this.state.pixelSize);
+        const rows = Math.floor(this.state.viewHeight / this.state.pixelSize);
+        const x = this.state.viewCenterX + Math.floor((Math.random() - 0.5) * cols);
+        const y = this.state.viewCenterY + Math.floor((Math.random() - 0.5) * rows);
+        
+        const ant = this.createAnt(x, y, Date.now());
+        this.state.ants.push(ant);
+        this.state.antTrails.set(ant.id, [{x, y}]);
+        this.updateInfo();
+        this.showTooltip(`Ant added at (${x}, ${y})`);
+      }
+
+      removeAntAt(x, y) {
+        const idx = this.state.ants.findIndex(ant => ant.x === x && ant.y === y);
+        if (idx !== -1) {
+          const ant = this.state.ants.splice(idx, 1)[0];
+          this.state.antTrails.delete(ant.id);
+          this.updateInfo();
+          this.showTooltip('Ant removed');
+          return true;
+        }
+        return false;
+      }
+
+      reset() {
+        this.state.grid.clear();
+        this.state.ants = [];
+        this.state.antTrails.clear();
+        this.state.steps = 0;
+        this.state.changedCells.clear();
+        
+        for (let i = 0; i < this.config.initialAnts; i++) {
+          this.addRandomAnt();
+        }
+        
+        this.updateInfo();
+        this.redrawAll();
+      }
+
+      togglePlayPause() {
+        this.state.isPaused = !this.state.isPaused;
+        const btn = document.getElementById('playPauseBtn');
+        btn.textContent = this.state.isPaused ? 'Play' : 'Pause';
+        btn.classList.toggle('active', !this.state.isPaused);
+      }
+
+      adjustSpeed(factor) {
+        this.state.speed = Math.max(this.config.minSpeed, 
+                         Math.min(this.config.maxSpeed, this.state.speed * factor));
+        document.getElementById('speedSlider').value = this.state.speed;
+        document.getElementById('speedValue').textContent = this.state.speed.toFixed(2) + 'x';
+      }
+
+      cycleTheme() {
+        this.state.theme = (this.state.theme + 1) % this.themes.length;
+        document.body.style.background = this.themes[this.state.theme].bg;
+        this.showTooltip(`Theme: ${this.themes[this.state.theme].name}`);
+        this.redrawAll();
+      }
+
+      updateInfo() {
+        document.getElementById('antCount').textContent = this.state.ants.length;
+        document.getElementById('stepCount').textContent = this.state.steps.toLocaleString();
+      }
+
+      showTooltip(message) {
+        const tooltip = document.getElementById('tooltip');
+        tooltip.textContent = message;
+        tooltip.classList.add('show');
+        setTimeout(() => tooltip.classList.remove('show'), 2000);
+      }
+
+      generateRainbowColor(state) {
+        if (state === 0) return this.themes[this.state.theme].bg;
+        const hue = ((state - 1) % 6) * 60;
+        const intensity = Math.floor((state - 1) / 6) * 0.15 + 0.1;
+        return `hsl(${hue}, 100%, ${intensity * 100}%)`;
+      }
+
+      generateOceanColor(state) {
+        if (state === 0) return this.themes[this.state.theme].bg;
+        const colors = ['#0ea5e9', '#06b6d4', '#10b981', '#8b5cf6', '#ec4899', '#f97316'];
+        return colors[(state - 1) % colors.length];
+      }
+
+      generateForestColor(state) {
+        if (state === 0) return this.themes[this.state.theme].bg;
+        const colors = ['#84cc16', '#65a30d', '#22c55e', '#10b981', '#14b8a6', '#06b6d4'];
+        return colors[(state - 1) % colors.length];
+      }
+
+      generateFireColor(state) {
+        if (state === 0) return this.themes[this.state.theme].bg;
+        const colors = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e'];
+        return colors[(state - 1) % colors.length];
+      }
+
+      stepAnt(ant) {
+        const size = this.config.virtualGridSize;
+        
+        const newX = (ant.x + DIRECTIONS[ant.direction].x + size) % size;
+        const newY = (ant.y + DIRECTIONS[ant.direction].y + size) % size;
+
+        const key = `${ant.x},${ant.y}`;
+        const currentColor = this.state.grid.get(key) || 0;
+        const colorGen = this.themes[this.state.theme].generator.bind(this);
+
+        if (currentColor === 0) {
+          ant.direction = (ant.direction + 1) % 4;
+          this.state.grid.set(key, 1);
+        } else if (currentColor >= 36) {
+          ant.direction = (ant.direction + 3) % 4;
+          this.state.grid.delete(key);
+        } else {
+          ant.direction = (ant.direction + 3) % 4;
+          this.state.grid.set(key, currentColor + 1);
+        }
+
+        this.state.changedCells.add(key);
+        ant.x = newX;
+        ant.y = newY;
+
+        const trail = this.state.antTrails.get(ant.id);
+        if (trail) {
+          trail.push({x: ant.x, y: ant.y});
+          if (trail.length > 15) trail.shift();
+        }
+      }
+
+      update() {
+        if (this.state.isPaused) return;
+
+        const stepsPerFrame = Math.max(1, Math.floor(this.state.speed));
+        for (let i = 0; i < stepsPerFrame; i++) {
+          this.state.ants.forEach(ant => this.stepAnt(ant));
+          this.state.steps++;
+        }
+
+        if (this.state.steps % 100 === 0) {
+          this.updateInfo();
+        }
+      }
+
+      render() {
+        const ctx = this.ctx;
+        const pixelSize = this.state.pixelSize;
+        const colorGen = this.themes[this.state.theme].generator.bind(this);
+
+        const cols = Math.ceil(this.state.viewWidth / pixelSize);
+        const rows = Math.ceil(this.state.viewHeight / pixelSize);
+        const startX = Math.floor(this.state.viewCenterX - cols / 2);
+        const startY = Math.floor(this.state.viewCenterY - rows / 2);
+        const endX = startX + cols;
+        const endY = startY + rows;
+
+        this.state.changedCells.forEach(key => {
+          const [x, y] = key.split(',').map(Number);
+          if (x >= startX && x < endX && y >= startY && y < endY) {
+            const screenX = (x - startX) * pixelSize;
+            const screenY = (y - startY) * pixelSize;
+            const color = this.state.grid.has(key) ? colorGen(this.state.grid.get(key)) : colorGen(0);
+            ctx.fillStyle = color;
+            ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+          }
+        });
+        this.state.changedCells.clear();
+
+        this.state.ants.forEach(ant => {
+          if (ant.x >= startX && ant.x < endX && ant.y >= startY && ant.y < endY) {
+            const screenX = (ant.x - startX) * pixelSize;
+            const screenY = (ant.y - startY) * pixelSize;
+
+            const trail = this.state.antTrails.get(ant.id);
+            if (trail) {
+              trail.forEach((pos, i) => {
+                if (i === trail.length - 1) return;
+                if (pos.x >= startX && pos.x < endX && pos.y >= startY && pos.y < endY) {
+                  const alpha = i / trail.length * 0.4;
+                  ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                  ctx.fillRect(
+                    (pos.x - startX) * pixelSize,
+                    (pos.y - startY) * pixelSize,
+                    pixelSize,
+                    pixelSize
+                  );
+                }
+              });
+            }
+
+            const centerX = screenX + pixelSize / 2;
+            const centerY = screenY + pixelSize / 2;
+            const antSize = pixelSize * 0.6;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(ant.direction * Math.PI / 2);
+            ctx.fillRect(-antSize/2, -antSize/2, antSize, antSize);
+            
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(antSize/3 - 2, -2, 4, 4);
+            ctx.restore();
+          }
+        });
+      }
+
+      redrawAll() {
+        const colorGen = this.themes[this.state.theme].generator.bind(this);
+        this.ctx.fillStyle = colorGen(0);
+        this.ctx.fillRect(0, 0, this.state.viewWidth, this.state.viewHeight);
+
+        const pixelSize = this.state.pixelSize;
+        const cols = Math.ceil(this.state.viewWidth / pixelSize);
+        const rows = Math.ceil(this.state.viewHeight / pixelSize);
+        const startX = Math.floor(this.state.viewCenterX - cols / 2);
+        const startY = Math.floor(this.state.viewCenterY - rows / 2);
+        const endX = startX + cols;
+        const endY = startY + rows;
+
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            const key = `${x},${y}`;
+            if (this.state.grid.has(key)) {
+              const screenX = (x - startX) * pixelSize;
+              const screenY = (y - startY) * pixelSize;
+              this.ctx.fillStyle = colorGen(this.state.grid.get(key));
+              this.ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+            }
+          }
+        }
+      }
+
+      calculateFPS() {
+        this.state.frameCount++;
+        const currentTime = performance.now();
+        if (this.state.frameCount >= this.config.fpsSampleSize) {
+          const delta = currentTime - this.state.lastTime;
+          this.state.fps = Math.round((this.config.fpsSampleSize * 1000) / delta);
+          this.state.frameCount = 0;
+          this.state.lastTime = currentTime;
+          document.getElementById('fps').textContent = this.state.fps;
+        }
+      }
+
+      animate() {
+        this.calculateFPS();
+        this.update();
+        this.render();
+        requestAnimationFrame(() => this.animate());
+      }
+    }
+
+    const DIRECTIONS = [
+      { x: 0, y: -1 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: -1, y: 0 }
+    ];
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        new LangtonsAnts('canvas');
+      } catch (error) {
+        console.error('Failed to initialize simulation:', error);
+        document.body.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-family:sans-serif;">
+            <div style="text-align:center;">
+              <h1>Error</h1>
+              <p>Canvas not supported in this browser</p>
+            </div>
+          </div>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
+
